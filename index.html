@@ -858,6 +858,7 @@
 
       const controls = carousel.querySelectorAll('.carousel-control');
       let index = 0;
+      let pointerStartX = null;
 
       const update = () => {
         const styles = getComputedStyle(track);
@@ -870,12 +871,61 @@
         track.style.transform = `translateX(${-index * step}px)`;
       };
 
+      const applySwipe = (delta) => {
+        const threshold = Math.max(40, cards[0].getBoundingClientRect().width * 0.15);
+        if (delta > threshold) {
+          index -= 1;
+          update();
+        } else if (delta < -threshold) {
+          index += 1;
+          update();
+        } else {
+          update();
+        }
+      };
+
       controls.forEach((button) => {
         button.addEventListener('click', () => {
           index += button.dataset.direction === 'next' ? 1 : -1;
           update();
         });
       });
+
+      const pointerDown = (event) => {
+        pointerStartX = event.clientX;
+        if (typeof carousel.setPointerCapture === 'function') {
+          try {
+            carousel.setPointerCapture(event.pointerId);
+          } catch (error) {
+            // ignore capture errors
+          }
+        }
+      };
+
+      const pointerUp = (event) => {
+        if (pointerStartX === null) {
+          return;
+        }
+        if (typeof carousel.releasePointerCapture === 'function') {
+          try {
+            carousel.releasePointerCapture(event.pointerId);
+          } catch (error) {
+            // ignore release errors
+          }
+        }
+        const delta = event.clientX - pointerStartX;
+        pointerStartX = null;
+        applySwipe(delta);
+      };
+
+      const pointerCancel = () => {
+        pointerStartX = null;
+      };
+
+      carousel.addEventListener('pointerdown', pointerDown, { passive: true });
+      carousel.addEventListener('pointerup', pointerUp, { passive: true });
+      carousel.addEventListener('pointercancel', pointerCancel, { passive: true });
+      carousel.addEventListener('pointerleave', pointerCancel, { passive: true });
 
       window.addEventListener('resize', update);
       window.addEventListener('load', update);
