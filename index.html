@@ -220,6 +220,7 @@
       position: relative;
       overflow: hidden;
       margin-top: 2rem;
+      touch-action: pan-y;
     }
 
     .carousel-track {
@@ -859,6 +860,7 @@
       const controls = carousel.querySelectorAll('.carousel-control');
       let index = 0;
       let pointerStartX = null;
+      let pointerActive = false;
 
       const update = () => {
         const styles = getComputedStyle(track);
@@ -871,17 +873,14 @@
         track.style.transform = `translateX(${-index * step}px)`;
       };
 
-      const applySwipe = (delta) => {
+      const snap = (delta) => {
         const threshold = Math.max(40, cards[0].getBoundingClientRect().width * 0.15);
         if (delta > threshold) {
           index -= 1;
-          update();
         } else if (delta < -threshold) {
           index += 1;
-          update();
-        } else {
-          update();
         }
+        update();
       };
 
       controls.forEach((button) => {
@@ -891,41 +890,36 @@
         });
       });
 
-      const pointerDown = (event) => {
-        pointerStartX = event.clientX;
-        if (typeof carousel.setPointerCapture === 'function') {
-          try {
-            carousel.setPointerCapture(event.pointerId);
-          } catch (error) {
-            // ignore capture errors
-          }
-        }
-      };
-
-      const pointerUp = (event) => {
-        if (pointerStartX === null) {
+      const onPointerDown = (event) => {
+        if (event.target.closest('.carousel-control')) {
           return;
         }
-        if (typeof carousel.releasePointerCapture === 'function') {
-          try {
-            carousel.releasePointerCapture(event.pointerId);
-          } catch (error) {
-            // ignore release errors
-          }
+        if (event.button !== 0) {
+          return;
         }
+        pointerActive = true;
+        pointerStartX = event.clientX;
+      };
+
+      const onPointerUp = (event) => {
+        if (!pointerActive) {
+          return;
+        }
+        pointerActive = false;
         const delta = event.clientX - pointerStartX;
         pointerStartX = null;
-        applySwipe(delta);
+        snap(delta);
       };
 
-      const pointerCancel = () => {
+      const onPointerCancel = () => {
+        pointerActive = false;
         pointerStartX = null;
       };
 
-      carousel.addEventListener('pointerdown', pointerDown, { passive: true });
-      carousel.addEventListener('pointerup', pointerUp, { passive: true });
-      carousel.addEventListener('pointercancel', pointerCancel, { passive: true });
-      carousel.addEventListener('pointerleave', pointerCancel, { passive: true });
+      carousel.addEventListener('pointerdown', onPointerDown, { passive: true });
+      carousel.addEventListener('pointerup', onPointerUp, { passive: true });
+      carousel.addEventListener('pointercancel', onPointerCancel, { passive: true });
+      carousel.addEventListener('pointerleave', onPointerCancel, { passive: true });
 
       window.addEventListener('resize', update);
       window.addEventListener('load', update);
